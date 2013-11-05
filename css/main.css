@@ -1,0 +1,31 @@
+body {
+  text-align: center;
+}
+div.content {
+  text-align: left;
+  display: inline-block;
+  margin: 20px auto 0px auto;
+}
+div.content.table {
+  min-width: 400px;
+}
+div.buttons {
+  margin-top: 5px;
+  text-align: center;
+}
+span.back {
+  position: relative;
+  right: 50%;
+  cursor: pointer;
+}
+span.forward {
+  position: relative;
+  left: 70%;
+  cursor: pointer;
+}
+td.remove > span {
+  cursor: pointer;
+}
+div.field {
+  max-width: 300px;
+}
