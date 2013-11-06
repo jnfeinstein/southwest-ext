@@ -4,15 +4,13 @@ $(function() {
     defaults: {
       confirmation: '',
       first_name: '',
-      last_name: '',
-      time: null
+      last_name: ''
     },
-    get_details: function(){
-      return {
-        confirmation: this.get('confirmation'),
-        first_name: this.get('first_name'),
-        last_name: this.get('last_name')
-      };
+    get_details: function() {
+      return this.toJSON();
+    },
+    reset: function() {
+      this.set(_.result(this, 'defaults'));
     }
   });
   app.ScheduleView = Backbone.Epoxy.View.extend({
@@ -26,18 +24,19 @@ $(function() {
       'click button.submit': 'do_checkin'
     },
     initialize: function() {
-      _.bindAll(this, 'do_checkin', 'date_changed');
+      _.bindAll(this, 'do_checkin');
       var datetimepicker = this.$el.find('div#datetimepicker').datetimepicker();
       this.datetimepicker = datetimepicker.data('DateTimePicker');
+      this.reset();
+    },
+    reset: function() {
+      this.model.reset();
       this.datetimepicker.setStartDate(moment().toDate());
       this.datetimepicker.setDate(moment().add(1, 'd'));
-      $(datetimepicker).on('change.dp', this.date_changed).trigger('change.dp');
-    },
-    date_changed: function() {
-      this.model.set('time', this.datetimepicker.getDate());
     },
     do_checkin: function() {
-      BGcall('schedule_checkin', this.model.get('time'), this.model.get_details());
+      BGcall('schedule_checkin', this.datetimepicker.getDate(), this.model.get_details());
+      this.reset();
       app.content_view.toggle_views();
     }
   });

@@ -1,6 +1,6 @@
 $(function() {
-  window.checkins = $.noop;
-   checkins.execute = (function() {
+  window.checkins = function() {};
+  checkins.execute = (function() {
     var _checkin_stage_1 = function(details) {
       var data = {
         confirmationNumber: details.confirmation,
@@ -34,40 +34,39 @@ $(function() {
     };
   })();
 
+  checkins.alarm_functions = {};
   checkins.schedule = (function() {
-    var alarm_functions = {};
-
     chrome.alarms.onAlarm.addListener(function(alarm) {
-      if (func = alarm_functions[alarm.name])
-        func();
+      var func = checkins.alarm_functions[alarm.name];
+      if (func) func();
     });
 
     return function(time, details) {
       var alarm_name = JSON.stringify(details);
       var alarm_time = new Date(time).getTime();
       var alarm_func = function() {
-        delete alarm_functions[alarm_name];
-        checkins.send();
+        checkins.cancel(alarm_name);
         checkins.execute(details);
       };
       chrome.alarms.create(alarm_name, {when: alarm_time});
-      alarm_functions[alarm_name] = alarm_func;
-      checkins.send();
+      checkins.alarm_functions[alarm_name] = alarm_func;
+      $(checkins).trigger('changed');
     };
   })();
 
   checkins.get = function() {
     var deferred = $.Deferred();
     chrome.alarms.getAll(function(alarms) {
-      deferred.resolve(alarms);
+      var valid_alarms = _.filter(alarms, function(alarm) { return checkins.alarm_functions[alarm.name]; });
+      deferred.resolve(valid_alarms);
     });
     return deferred.promise();
   };
 
-  checkins.cancel = function(details) {
-    var alarm_name = JSON.stringify(details);
+  checkins.cancel = function(alarm_name) {
+    delete checkins.alarm_functions[alarm_name];
     chrome.alarms.clear(alarm_name);
-    checkins.send();
+    $(checkins).trigger('changed');
   };
 
   checkins.send = function() {
@@ -78,13 +77,66 @@ $(function() {
       chrome.runtime.sendMessage({command: "scheduled:sending", scheduled: scheduled});
     });
   };
+
+  $(checkins).on('changed', checkins.send);
+});
+
+$(function() {
+  window.management = function() {};
+  management.scrub_checkins = function() {
+    var deferred = $.Deferred();
+    checkins.get().then(function(alarms) {
+      var current_time = new Date().getTime();
+      var grouped_alarms = _.groupBy(alarms, function(alarm) { return current_time > alarm.scheduledTime; });
+      _.each(grouped_alarms.true || [], function(alarm) {
+        var func = checkins.alarm_functions[alarm.name];
+        checkins.cancel(alarm.name);
+        if (func) func();
+      });
+      deferred.resolve(grouped_alarms.false);
+    });
+    return deferred.promise();
+  };
+
+  management.set_keep_awake = (function() {
+    var power_level = 'system';
+    return function(keep_awake) {
+      keep_awake ? chrome.power.requestKeepAwake('system') : chrome.power.releaseKeepAwake(); 
+    };
+  })();
+
+  management.set_periodic_monitoring = (function() {
+    var alarm_name = 'scrub_alarm';
+    var alarm_period = 2;
+    chrome.alarms.onAlarm.addListener(function(alarm) {
+      if (alarm.name != alarm_name) return;
+      management.run_management();
+    });
+    return function(monitor) {
+      chrome.alarms.get(alarm_name, function(alarm) {
+        if (alarm && !monitor)
+          chrome.alarms.clear(alarm_name);
+        else if (!alarm && monitor)
+          chrome.alarms.create(alarm_name, {periodInMinutes: alarm_period});
+      });
+    };
+  })();
+
+  management.run_management = function() {
+    management.scrub_checkins().then(function(alarms) {
+      var stay_active = _.any(alarms);
+      management.set_keep_awake(stay_active);
+      management.set_periodic_monitoring(stay_active)
+    });
+  };
+
+  $(checkins).on('changed', management.run_management);
 });
 
 var schedule_checkin = function() {
   checkins.schedule.apply(checkins, arguments);
 };
 
-// BGcall dispatch from AdBlock
 chrome.runtime.onMessage.addListener(
   function(request, sender, sendResponse) {
     if (sender.tab == null)
@@ -99,7 +151,8 @@ chrome.runtime.onMessage.addListener(
       checkins.send();
     }
     else if (request.command == 'scheduled:cancel') {
-      checkins.cancel(request.details);
+      if (request.details.time) delete request.details.time;
+      checkins.cancel(JSON.stringify(request.details));
     }
   }
 );
