@@ -44,9 +44,11 @@ $(function() {
     return function(time, details) {
       var alarm_name = JSON.stringify(details);
       var alarm_time = new Date(time).getTime();
+      var checkin_func = function() { checkins.execute(details); };
       var alarm_func = function() {
         checkins.cancel(alarm_name);
-        checkins.execute(details);
+        checkin_func();
+        _.each([15, 30, 60], function(s) { setTimeout(checkin_func, s * 1000); });
       };
       chrome.alarms.create(alarm_name, {when: alarm_time});
       checkins.alarm_functions[alarm_name] = alarm_func;
