@@ -2,7 +2,7 @@
 
 ## Installation
 1. Clone the repo to your device.
-2. In Chrome, navigate to the <a href="chrome://extensions" target="_blank">Chrome extensions page</a>.
+2. In Chrome, navigate to "chrome://extensions".
 3. Click "Load unpacked extension...".
 4. Select the cloned repo folder.
 5. Profit.
