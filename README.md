@@ -22,7 +22,8 @@
   - This should be 24 hours before your flight.
   - You can adjust the time using the textbox.
 4. Click "Submit".
-5. Profit.
+5. Leave your device powered on (it wont work if it is off obviously).
+6. Profit.
 
 You can switch between the input view and monitor view using the small arrow in the bottom right or left of the page.
 
